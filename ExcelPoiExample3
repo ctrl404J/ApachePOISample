@@ -1,0 +1,57 @@
+예시 코드: 병합 셀 복사하기
+java
+복사
+편집
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
+public class MergeCellCopyExample {
+    public static void main(String[] args) throws Exception {
+        Workbook workbook = new XSSFWorkbook();
+
+        // 템플릿 시트 생성
+        Sheet templateSheet = workbook.createSheet("Template");
+        Row templateRow = templateSheet.createRow(0);
+        Cell mergedCell = templateRow.createCell(0);
+        mergedCell.setCellValue("병합된 셀입니다");
+
+        // A1 ~ C1 병합
+        templateSheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 2));
+
+        // 셀 스타일 설정 (눈에 띄게)
+        CellStyle style = workbook.createCellStyle();
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        mergedCell.setCellStyle(style);
+
+        // 메인 시트 생성
+        Sheet mainSheet = workbook.createSheet("Main");
+
+        // 복사 정책 설정 (병합 포함!)
+        CellCopyPolicy copyPolicy = new CellCopyPolicy.Builder()
+                .cellStyle(true)
+                .cellValue(true)
+                .mergedRegions(true)
+                .build();
+
+        // 복사할 대상 행 생성
+        Row newRow = mainSheet.createRow(5); // 예: 6번째 줄
+
+        for (int col = 0; col <= 2; col++) { // A~C
+            Cell from = templateRow.getCell(col);
+            if (from == null) from = templateRow.createCell(col);
+
+            Cell to = newRow.createCell(col);
+            to.copyCellFrom(from, copyPolicy);
+        }
+
+        // 워크북 저장
+        FileOutputStream out = new FileOutputStream("MergedCellCopyExample.xlsx");
+        workbook.write(out);
+        out.close();
+        workbook.close();
+
+        System.out.println("병합 셀이 복사된 엑셀이 생성되었습니다.");
+    }
+}
