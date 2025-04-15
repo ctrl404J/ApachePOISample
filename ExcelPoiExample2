@@ -51,9 +51,9 @@ public class ExcelScrollSheetExample {
 
         // 줄바꿈 + 위쪽 정렬 셀 스타일 (G열용)
         CellStyle wrapStyle = outputWorkbook.createCellStyle();
-        wrapStyle.setWrapText(true);
-        wrapStyle.setVerticalAlignment(VerticalAlignment.TOP);
-        wrapStyle.setAlignment(HorizontalAlignment.LEFT);
+        wrapStyle.setWrapText(true); //셀 안의 내용이 길어지면 자동으로 다음 줄로 내려가게 만들어 줘.
+        wrapStyle.setVerticalAlignment(VerticalAlignment.TOP); //셀의 높이가 여러 줄일 경우, 기본은 가운데 정렬인데, 이걸 위쪽으로 붙여주는 거야.
+        wrapStyle.setAlignment(HorizontalAlignment.LEFT); // 텍스트를 셀 안에서 왼쪽에 붙여서 정렬되도록 함.
 
         // 테스트용 데이터 생성 (35개, 각 행은 7개 셀)
         List<String[]> dataList = new ArrayList<>();
