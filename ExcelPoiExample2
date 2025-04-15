@@ -1,0 +1,132 @@
+✅ 시나리오 가정
+template.xlsx 라는 템플릿 파일이 존재하고, 한 페이지(20행) 분량의 기본 틀이 이미 정의되어 있음
+(예: 타이틀 위치, 페이지 번호 위치, 헤더 행 등이 이미 디자인되어 있음)
+이 템플릿을 복제하여 여러 페이지(20행씩)를 생성함
+복사된 각 템플릿 페이지에 데이터 20행씩 채움
+G열(7번째 셀)은 줄바꿈 포함, 셀 높이 자동 조정
+🔧 템플릿 엑셀 요구사항 예시
+템플릿에는 A1~G22까지 구조가 이미 정의되어 있다고 가정 (빈 공간, 타이틀, 페이지, 헤더 + 20행 자리)
+데이터는 A5~G24에 채워진다고 가정 (헤더는 4행에 있다고 침)
+
+
+항목	설명
+시트	하나만 생성 (페이지별로 여러 시트 아님)
+구조 반복	한 페이지 구성 = 빈줄 + 타이틀 + 페이지 번호 + 헤더 + 20개 데이터
+셀 스타일	7번째 셀(G열)은 줄바꿈 + 자동 높이
+템플릿	기존 template.xlsx의 한 페이지 구조를 복사해서 아래로 이어 붙임
+✅ 예제 코드: "스크롤형 엑셀 출력 (한 시트에 모든 페이지)"
+📄 전체 코드 (모든 줄 주석 포함)
+java
+복사
+편집
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.ss.util.CellCopyPolicy;
+
+import java.io.*;
+import java.util.*;
+
+public class ExcelScrollSheetExample {
+
+    public static void main(String[] args) throws Exception {
+        // 템플릿 엑셀 로드 (한 페이지 분량 레이아웃 포함)
+        FileInputStream templateFile = new FileInputStream("template.xlsx");
+        Workbook templateWorkbook = new XSSFWorkbook(templateFile);
+        Sheet templateSheet = templateWorkbook.getSheetAt(0); // 첫 시트 사용
+
+        // 출력할 새 워크북 생성
+        Workbook outputWorkbook = new XSSFWorkbook();
+        Sheet mainSheet = outputWorkbook.createSheet("AllPages"); // 하나의 시트에 다 넣음
+
+        // 복사 정책 설정 (스타일/병합 포함)
+        CellCopyPolicy copyPolicy = new CellCopyPolicy.Builder()
+                .cellStyle(true).cellValue(true).mergedRegions(true)
+                .rowHeight(true).build();
+
+        // 줄바꿈 + 위쪽 정렬 셀 스타일 (G열용)
+        CellStyle wrapStyle = outputWorkbook.createCellStyle();
+        wrapStyle.setWrapText(true);
+        wrapStyle.setVerticalAlignment(VerticalAlignment.TOP);
+        wrapStyle.setAlignment(HorizontalAlignment.LEFT);
+
+        // 테스트용 데이터 생성 (35개, 각 행은 7개 셀)
+        List<String[]> dataList = new ArrayList<>();
+        for (int i = 1; i <= 35; i++) {
+            String longText = (i % 5 == 0)
+                    ? "이것은 매우 긴 텍스트입니다. 셀에서 줄바꿈이 되어야 하며 자동 높이 조절이 됩니다."
+                    : "Data" + i + "-7";
+
+            dataList.add(new String[]{
+                "Data" + i + "-1", "Data" + i + "-2", "Data" + i + "-3",
+                "Data" + i + "-4", "Data" + i + "-5", "Data" + i + "-6", longText
+            });
+        }
+
+        int rowIndex = 0; // 출력 시트에서 현재 행 위치
+        int pageNumber = 1;
+
+        for (int i = 0; i < dataList.size(); i++) {
+            // 새로운 페이지 시작 시 (20개마다 한 번)
+            if (i % 20 == 0) {
+                if (i != 0) rowIndex++; // 페이지 사이에 빈 줄 하나
+
+                // 템플릿의 첫 5행 (타이틀/페이지/헤더 포함)을 복사해서 mainSheet로 붙여넣기
+                for (int tRow = 0; tRow < 5; tRow++) {
+                    Row templateRow = templateSheet.getRow(tRow);
+                    if (templateRow == null) continue;
+
+                    Row newRow = mainSheet.createRow(rowIndex++);
+                    newRow.setHeight(templateRow.getHeight());
+
+                    for (int tCol = 0; tCol < templateRow.getLastCellNum(); tCol++) {
+                        Cell templateCell = templateRow.getCell(tCol);
+                        if (templateCell == null) continue;
+
+                        Cell newCell = newRow.createCell(tCol);
+                        newCell.copyCellFrom(templateCell, copyPolicy);
+                    }
+                }
+
+                // 페이지 번호 셀 수정 (예: G3 = rowIndex - 2, col 6)
+                Row pageRow = mainSheet.getRow(rowIndex - 2);
+                if (pageRow != null) {
+                    Cell pageCell = pageRow.getCell(6); // G열
+                    if (pageCell == null) pageCell = pageRow.createCell(6);
+                    pageCell.setCellValue("Page " + pageNumber++);
+                }
+            }
+
+            // 데이터 행 작성 시작 (현재 위치부터 시작)
+            Row dataRow = mainSheet.createRow(rowIndex++);
+            String[] rowData = dataList.get(i);
+
+            for (int col = 0; col < rowData.length; col++) {
+                Cell cell = dataRow.createCell(col);
+                cell.setCellValue(rowData[col]);
+
+                // G열(7번째 셀) 줄바꿈 적용
+                if (col == 6) {
+                    cell.setCellStyle(wrapStyle);
+                }
+            }
+        }
+
+        // G열 너비 넉넉하게 설정
+        mainSheet.setColumnWidth(6, 10000);
+
+        // 나머지 열은 자동 너비 조정 (원하는 경우)
+        for (int i = 0; i < 6; i++) {
+            mainSheet.autoSizeColumn(i);
+        }
+
+        // 최종 엑셀 파일 저장
+        FileOutputStream out = new FileOutputStream("ScrollSheetExcel.xlsx");
+        outputWorkbook.write(out);
+        out.close();
+
+        templateWorkbook.close();
+        outputWorkbook.close();
+
+        System.out.println("하나의 시트에 스크롤형 엑셀 생성 완료!");
+    }
+}
