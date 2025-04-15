@@ -1,0 +1,148 @@
+엑셀 레이아웃 구조 요약:
+맨 위 빈 행 (Row 0)
+큰 타이틀 (Row 1)
+페이지 표시 (Row 2)
+헤더 행 (Row 3)
+데이터 행 (최대 20개씩)
+20개 넘어가면: 빈 행 + 타이틀 + 페이지 표시 + 헤더 재출력
+
+✅ 전체 예제 코드 (줄바꿈 포함, 한 줄씩 설명)
+java
+복사
+편집
+import org.apache.poi.ss.usermodel.*; // 셀, 시트, 워크북 등의 클래스
+import org.apache.poi.xssf.usermodel.XSSFWorkbook; // .xlsx 형식 워크북
+import org.apache.poi.ss.util.CellRangeAddress; // 셀 병합용
+
+import java.io.FileOutputStream; // 파일 출력용
+import java.util.ArrayList;
+import java.util.List;
+
+public class ExcelPagingExample {
+
+    public static void main(String[] args) throws Exception {
+        Workbook workbook = new XSSFWorkbook(); // 워크북 생성 (XLSX 형식)
+        Sheet sheet = workbook.createSheet("Report"); // 시트 생성
+
+        // 1~35번까지의 데이터 샘플 생성 (각 행은 7개의 값)
+        List<String[]> dataList = new ArrayList<>();
+        for (int i = 1; i <= 35; i++) {
+            // 테스트: G열에 긴 텍스트 삽입 (5개마다 한 번씩)
+            String longText = (i % 5 == 0)
+                    ? "이것은 매우 긴 셀 내용입니다. 줄바꿈이 되어야 하며, 셀 너비를 넘으면 자동으로 줄이 바뀌고 행 높이도 조절됩니다."
+                    : "Data" + i + "-7";
+
+            dataList.add(new String[]{
+                "Data" + i + "-1", "Data" + i + "-2", "Data" + i + "-3",
+                "Data" + i + "-4", "Data" + i + "-5", "Data" + i + "-6", longText
+            });
+        }
+
+        // 타이틀 스타일 (가운데 정렬, 굵은 글씨, 큰 폰트)
+        CellStyle titleStyle = workbook.createCellStyle();
+        Font titleFont = workbook.createFont();
+        titleFont.setBold(true);
+        titleFont.setFontHeightInPoints((short) 16);
+        titleStyle.setFont(titleFont);
+        titleStyle.setAlignment(HorizontalAlignment.CENTER);
+
+        // 페이지 번호 스타일 (오른쪽 정렬)
+        CellStyle pageStyle = workbook.createCellStyle();
+        pageStyle.setAlignment(HorizontalAlignment.RIGHT);
+
+        // 헤더 스타일 (가운데 정렬, 굵은 글씨, 아래 테두리)
+        CellStyle headerStyle = workbook.createCellStyle();
+        Font headerFont = workbook.createFont();
+        headerFont.setBold(true);
+        headerStyle.setFont(headerFont);
+        headerStyle.setAlignment(HorizontalAlignment.CENTER);
+        headerStyle.setBorderBottom(BorderStyle.THIN);
+
+        // 일반 데이터 셀 스타일 (왼쪽 정렬)
+        CellStyle dataStyle = workbook.createCellStyle();
+        dataStyle.setAlignment(HorizontalAlignment.LEFT);
+
+        // 7번째 셀 전용 줄바꿈 스타일 (왼쪽 + 위쪽 정렬 + 줄바꿈)
+        CellStyle wrapStyle = workbook.createCellStyle();
+        wrapStyle.setWrapText(true); // 줄바꿈 허용
+        wrapStyle.setAlignment(HorizontalAlignment.LEFT); // 수평: 왼쪽
+        wrapStyle.setVerticalAlignment(VerticalAlignment.TOP); // 수직: 위쪽
+
+        // 헤더 명칭 배열
+        String[] headers = {"Header1", "Header2", "Header3", "Header4", "Header5", "Header6", "Header7"};
+
+        int rowIndex = 0;     // 현재 행 번호 추적
+        int pageNumber = 1;   // 페이지 번호 추적
+
+        // 데이터 전체 반복
+        for (int i = 0; i < dataList.size(); i++) {
+            // 20개마다 새로운 페이지 구성
+            if (i % 20 == 0) {
+                if (i != 0) rowIndex++; // 페이지 사이에 빈 줄
+
+                sheet.createRow(rowIndex++); // ① 빈 행
+
+                // ② 타이틀 행 (C~E 열 병합)
+                Row titleRow = sheet.createRow(rowIndex++);
+                Cell titleCell = titleRow.createCell(2); // C열
+                titleCell.setCellValue("Excel Report Title"); // 타이틀 텍스트
+                titleCell.setCellStyle(titleStyle); // 스타일 적용
+                sheet.addMergedRegion(new CellRangeAddress(
+                        titleRow.getRowNum(), titleRow.getRowNum(), 2, 4)); // C~E 병합
+
+                // ③ 페이지 번호 (G열 = 6번 인덱스)
+                Row pageRow = sheet.createRow(rowIndex++);
+                Cell pageCell = pageRow.createCell(6);
+                pageCell.setCellValue("Page " + pageNumber++); // 페이지 텍스트
+                pageCell.setCellStyle(pageStyle);
+
+                // ④ 헤더 행
+                Row headerRow = sheet.createRow(rowIndex++);
+                for (int j = 0; j < headers.length; j++) {
+                    Cell headerCell = headerRow.createCell(j);
+                    headerCell.setCellValue(headers[j]);
+                    headerCell.setCellStyle(headerStyle); // 헤더 스타일 적용
+                }
+            }
+
+            // ⑤ 데이터 행 생성
+            Row dataRow = sheet.createRow(rowIndex++);
+            String[] rowData = dataList.get(i);
+
+            for (int j = 0; j < rowData.length; j++) {
+                Cell dataCell = dataRow.createCell(j); // 셀 생성
+                dataCell.setCellValue(rowData[j]);     // 데이터 값 설정
+
+                // 7번째 셀(G열)만 줄바꿈 스타일 적용
+                if (j == 6) {
+                    dataCell.setCellStyle(wrapStyle);
+                } else {
+                    dataCell.setCellStyle(dataStyle);
+                }
+            }
+        }
+
+        // 컬럼 너비 자동 조정 (1~7열)
+        for (int i = 0; i < 7; i++) {
+            sheet.autoSizeColumn(i); // 자동 너비 조정
+        }
+
+        // G열은 너비가 너무 작을 수 있어 수동으로 넉넉하게 설정
+        sheet.setColumnWidth(6, 10000); // G열 너비: 10000 = 약 70자 정도 표시
+
+        // 파일로 저장
+        FileOutputStream out = new FileOutputStream("ExcelPagingExample.xlsx");
+        workbook.write(out); // 워크북을 파일에 기록
+        out.close();         // 파일 닫기
+        workbook.close();    // 워크북 닫기
+
+        System.out.println("엑셀 파일이 성공적으로 생성되었습니다!");
+    }
+}
+🔍 주요 포인트 요약
+
+항목	설명
+wrapText(true)	셀 내부 줄바꿈 허용 (내용이 길면 자동 줄바꿈)
+VerticalAlignment.TOP	줄바꿈 시 텍스트가 셀 위에서부터 시작되게 설정
+setColumnWidth(6, 10000)	G열의 셀 너비를 넉넉하게 수동 설정
+autoSizeColumn(i)	다른 열은 내용에 맞춰 자동 너비 조절
